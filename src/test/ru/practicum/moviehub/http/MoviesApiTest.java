@@ -46,7 +46,6 @@ public class MoviesApiTest {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(BASE + "/movies"))
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8));
-        // Добавляем заголовки
         headers.forEach(builder::header);
         return client.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
     }
@@ -61,7 +60,6 @@ public class MoviesApiTest {
                 .header("Accept", "application/json")
                 .GET()
                 .build();
-
         return client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
     }
 
@@ -74,7 +72,6 @@ public class MoviesApiTest {
         int end = body.indexOf(",", start);
         if (end == -1) end = body.indexOf("}", start);
         if (end == -1) throw new RuntimeException("Malformed JSON");
-
         return body.substring(start + 1, end).trim();
     }
 
@@ -114,7 +111,6 @@ public class MoviesApiTest {
                 .uri(URI.create(BASE + "/movies"))
                 .GET()
                 .build();
-
         HttpResponse<String> resp =
                 client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         assertEquals(200, resp.statusCode(), "GET /movies должен вернуть 200");
@@ -129,55 +125,35 @@ public class MoviesApiTest {
 
     @Test
     void getMovies_whenMovieExist_returnsListWithAddedMovies() throws Exception {
-        String movieJson = """
-                {
-                "title": "Hobby Games",
-                "year": 2000,
-                "director": "Karl Lagerfeld"
-                }
-                """;
-
+        String movieJson = "{\"title\":\"Hobby Games\",\"year\":2000,\"director\":\"Karl Lagerfeld\"}";
         HttpRequest postRequest = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:8080/movies"))
+                .uri(URI.create(BASE + "/movies"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(movieJson, StandardCharsets.UTF_8))
                 .build();
-
         HttpResponse<String> postResponse = client.send(postRequest,
                 HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         int postStatus = postResponse.statusCode();
-
         assertTrue(postStatus == 201 || postStatus == 200,
                 "POST /movies должен вернуть 201 или 200, а получили " + postStatus);
-
         HttpRequest getRequest = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:8080/movies"))
+                .uri(URI.create(BASE + "/movies"))
                 .header("Accept", "application/json")
                 .GET()
                 .build();
-
         HttpResponse<String> getResponse = client.send(getRequest,
                 HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-
         assertEquals(200, getResponse.statusCode(), "GET /movies должен вернуть 200");
-
         String body = getResponse.body().trim();
         assertTrue(body.startsWith("[") && body.endsWith("]"),
                 "Ответ должен быть JSON-массивом");
         assertTrue(body.contains("Hobby Games"),
-                "В списке фильмов должно быть название 'HobbyGames'");
+                "В списке фильмов должно быть название 'Hobby Games'");
     }
 
     @Test
     void postMovie_whenValid_returns201AndCreatedMovie() throws Exception {
-        String movieJson = """
-                {
-                    "title": "Dark",
-                    "year": 2010,
-                    "director": "Nolan"
-                }
-                """;
-
+        String movieJson = "{\"title\":\"Dark\",\"year\":2010,\"director\":\"Nolan\"}";
         HttpResponse<String> postResp = sendPost(movieJson);
         assertEquals(201, postResp.statusCode(), "POST должен вернуть 201 Created");
         HttpResponse<String> getResp = sendGet();
@@ -188,16 +164,8 @@ public class MoviesApiTest {
 
     @Test
     void postMovie_whenTitleIsEmpty_returnsBadRequest() throws Exception {
-        String movieJson = """
-                {
-                    "title": "",
-                    "year": 2000,
-                    "director": "Some"
-                }
-                """;
-
+        String movieJson = "{\"title\":\"\",\"year\":2000,\"director\":\"Some\"}";
         HttpResponse<String> resp = sendPost(movieJson);
-
         assertTrue(resp.statusCode() == 400 || resp.statusCode() == 422,
                 "Ожидается 400 или 422, получено " + resp.statusCode());
     }
@@ -205,32 +173,16 @@ public class MoviesApiTest {
     @Test
     void postMovie_whenTitleTooLong_returnsBadRequest() throws Exception {
         String longTitle = "K".repeat(101);
-        String movieJson = String.format("""
-                {
-                    "title": "%s",
-                    "year": 2000,
-                    "director": "Some"
-                }
-                """, longTitle);
-
+        String movieJson = String.format("{\"title\":\"%s\",\"year\":2000,\"director\":\"Some\"}", longTitle);
         HttpResponse<String> resp = sendPost(movieJson);
-
         assertTrue(resp.statusCode() == 400 || resp.statusCode() == 422,
                 "Ожидается 400 или 422, получено " + resp.statusCode());
     }
 
     @Test
     void postMovie_whenYearTooEarly_returnsBadRequest() throws Exception {
-        String movieJson = """
-                {
-                    "title": "Matrix",
-                    "year": 1800,
-                    "director": "Unknown"
-                }
-                """;
-
+        String movieJson = "{\"title\":\"Matrix\",\"year\":1800,\"director\":\"Unknown\"}";
         HttpResponse<String> resp = sendPost(movieJson);
-
         assertTrue(resp.statusCode() == 400 || resp.statusCode() == 422,
                 "Ожидается 400 или 422, получено " + resp.statusCode());
     }
@@ -238,38 +190,23 @@ public class MoviesApiTest {
     @Test
     void postMovie_whenYearTooFar_returnsBadRequest() throws Exception {
         int futureYear = Year.now().getValue() + 2;
-        String movieJson = String.format("""
-                {
-                    "title": "Back in the Future",
-                    "year": %d,
-                    "director": "Unknown"
-                }
-                """, futureYear);
-
+        String movieJson = String.format("{\"title\":\"Back in the Future\",\"year\":%d,\"director\":\"Unknown\"}", futureYear);
         HttpResponse<String> resp = sendPost(movieJson);
-
         assertTrue(resp.statusCode() == 400 || resp.statusCode() == 422,
                 "Ожидается 400 или 422, получено " + resp.statusCode());
     }
 
     @Test
     void postMovie_whenWrongContentType_returnsBadRequest() throws Exception {
-        String movieJson = "{ \"title\": \"Life\", \"year\": 1999 }";
+        String movieJson = "{\"title\":\"Life\",\"year\":1999}";
         HttpResponse<String> resp = sendPost(movieJson, Map.of("Content-Type", "text/plain"));
-        // Ожидаем 415 (Unsupported Media Type) или 400
         assertTrue(resp.statusCode() == 415 || resp.statusCode() == 400,
                 "Ожидается 415 или 400, получено " + resp.statusCode());
     }
 
     @Test
     void getMovieById_whenExists_returnsMovie() throws Exception {
-        String movieJson = """
-                {
-                    "title": "The Godfather",
-                    "year": 1972,
-                    "director": "Coppola"
-                }
-                """;
+        String movieJson = "{\"title\":\"The Godfather\",\"year\":1972,\"director\":\"Coppola\"}";
         HttpResponse<String> postResp = sendPost(movieJson);
         assertEquals(201, postResp.statusCode());
         String id = extractIdFromPostResponse(postResp);
@@ -297,13 +234,7 @@ public class MoviesApiTest {
 
     @Test
     void deleteMovie_whenExists_returns204AndDeletesMovie() throws Exception {
-        String movieJson = """
-                {
-                    "title": "Perfection",
-                    "year": 1994,
-                    "director": "Tarantino"
-                }
-                """;
+        String movieJson = "{\"title\":\"Perfection\",\"year\":1994,\"director\":\"Tarantino\"}";
         HttpResponse<String> postResp = sendPost(movieJson);
         assertEquals(201, postResp.statusCode());
         String id = extractIdFromPostResponse(postResp);
@@ -328,24 +259,10 @@ public class MoviesApiTest {
 
     @Test
     void getMoviesByYear_whenMoviesExist_returnsMoviesOfThatYear() throws Exception {
-        String movie1999 = """
-                {
-                    "title": "The Matrix",
-                    "year": 1999,
-                    "director": "Wachowski"
-                }
-                """;
+        String movie1999 = "{\"title\":\"The Matrix\",\"year\":1999,\"director\":\"Wachowski\"}";
         sendPost(movie1999);
-
-        String movie2000 = """
-                {
-                    "title": "Gladiator",
-                    "year": 2000,
-                    "director": "Scott"
-                }
-                """;
+        String movie2000 = "{\"title\":\"Gladiator\",\"year\":2000,\"director\":\"Scott\"}";
         sendPost(movie2000);
-
         HttpResponse<String> resp = sendGetByYear("1999");
         assertEquals(200, resp.statusCode());
         String body = resp.body().trim();
